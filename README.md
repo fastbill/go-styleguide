@@ -35,7 +35,7 @@ experience and inspiration/ideas from conference talks.
 - [Avoid unadorned return](#avoid-unadorned-return)
 - [Use canonical import path](#use-canonical-import-path)
 - [Avoid empty interface](#avoid-empty-interface)
-- [Main first](#main-first)
+- [Order functions public-private and top-down](#order-functions-public-private-and-top-down)
 - [Use internal packages](#use-internal-packages)
 - [Avoid helper/util](#avoid-helperutil)
 - [Embed binary data](#embed-binary-data)
@@ -43,6 +43,10 @@ experience and inspiration/ideas from conference talks.
 - [Structs](#structs)
 	- [Use named structs](#use-named-structs)
 	- [Avoid new keyword](#avoid-new-keyword)
+- [Packages/SDKs](#packages-sdks)
+	- [Return the error](#return-the-error)
+	- [Return a struct on setup](#return-a-struct-on-setup)
+	- [Provide an interface and a mock for optional use](#provide-an-interface-and-a-mock-for-optional-use)
 - [Consistent header naming](#consistent-header-naming)
 
 ## Add context to errors
@@ -599,8 +603,7 @@ func main() {
 		for {
 			select {
 			case s := <-sc:
-				logger.Info("Received signal, stopping application",
-					zap.String("signal", s.String()))
+				logger.WithField("signal", s.String()).Info("Received signal, stopping application")
 				done <- true
 				return
 			default:
@@ -701,13 +704,22 @@ func run(foo interface{}) {
 
 Empty interfaces make code more complex and unclear, avoid them where you can.
 
-## Main first
+## Order functions public-private and top-down
+When arranging your functions inside a package go by these rules in the given order.
+1. *From public to private*: All exported function/methods come first in whatever order makes sense. Only after all of those put the unexported functions and methods.
+2. *From top to bottom*: Helper functions are below the functions they are used in so the high level code can be read first and then the reader can dive into the details. E.g., in the main package `main(){...}` should be the first function
 
 **Don't:**
 ```go
-package main // import "github.com/me/my-project"
+package example
 
-func someHelper() int {
+func (s *someStruct) someHelper() int {
+	someOtherHelper()
+	// ...
+}
+
+func (s *someStruct) ExportedFunction1 {
+	s.someHelper()
 	// ...
 }
 
@@ -715,28 +727,26 @@ func someOtherHelper() string {
 	// ...
 }
 
-func Handler(w http.ResponseWriter, r *http.Reqeust) {
-	// ...
-}
-
-func main() {
+func (s *someStruct) ExportedFunction2 {
 	// ...
 }
 ```
 
 **Do:**
 ```go
-package main // import "github.com/me/my-project"
+package example
 
-func main() {
+func (s *someStruct) ExportedFunction1 {
+	s.someHelper()
 	// ...
 }
 
-func Handler(w http.ResponseWriter, r *http.Reqeust) {
+func (s *someStruct) ExportedFunction2 {
 	// ...
 }
 
-func someHelper() int {
+func (s *someStruct) someHelper() int {
+	someOtherHelper()
 	// ...
 }
 
@@ -751,7 +761,9 @@ Putting `main()` first makes reading the file a lot more easier. Only the
 ## Use internal packages
 
 If you're creating a cmd, consider moving libraries to `internal/` to prevent
-import of unstable, changing packages.
+import of unstable, changing packages.  
+
+Do not use the internal package if your code contains types that are needed by SDKs or other components.
 
 ## Avoid helper/util
 
@@ -767,7 +779,6 @@ assets to your binary
 ## Use functional options
 
 ```go
-
 func main() {
 	// ...
 	startServer(
@@ -803,8 +814,6 @@ func startServer(opts ...ServerOpt) {
 
 	// ...
 }
-
-
 ```
 
 ## Structs
@@ -842,6 +851,119 @@ s := new(MyStruct)
 **Do:**
 ```go
 s := &MyStruct{}
+```
+
+## Packages/SDKs
+### Return the error
+If possible the package should not require passing a logger, instead the functions/methods should just return the error so it can be handled by the consumer.  
+**Don't:**
+```go
+type SDK struct {
+	logger *log.Logger
+}
+
+func New(logger *log.Logger) *SDK {
+	return &SDK{logger}
+}
+
+func(s *SDK) IsValid(s string) bool {
+	// ...
+	s.logger.Error("could not parse input")
+	return false
+}
+```
+
+**Do:**
+```go
+type SDK struct {}
+
+func New() *SDK {
+	return &SDK{}
+}
+
+func(s *SDK) Validate(s string) error {
+	// ...
+	return errors.New("could not parse input")
+}
+```
+
+If you want to pass on the http error code that was returned from some (external or internal) service, use a specific error type like [httperrors](https://github.com/fastbill/httperrors).
+
+**Do:**
+```go
+import "github.com/fastbill/httperrors"
+
+func CallOtherService() error {
+	// ...
+	req.Header.Add("Authorization", "Bearer sometoken")
+	resp, err := client.Do(req)
+	if resp.StatusCode == http.StatusUnauthorized {
+		return httperrors.New(http.StatusUnauthorized, nil)
+	}
+	// ...
+}
+```
+
+### Return a struct on setup
+Interfaces should be a matter of the consumer of your package. When setting up your SDK you should return a struct instead of interface. That way the consumer can easily extend it by embedding it, adding methods etc. and then writing an interface that fits the consumers use case.  
+See also [Go Wiki](https://github.com/golang/go/wiki/CodeReviewComments#interfaces).
+
+**Don't:**
+```go
+type Thinger interface {
+	// Foo does something cool, ...
+	Foo() bool
+}
+
+type thing struct {}
+
+func New() Thinger {
+	return thing{}
+}
+
+// Foo implements Thinger#Foo
+func (t thing) Foo() bool {
+	// ...
+}
+```
+
+**Do:**
+```go
+type Thinger interface { 
+	Foo() bool
+}
+
+type Thing struct {}
+
+func New() Thing {
+	return Thing{}
+}
+
+// Foo does something cool, ...
+func (t Thing) Foo() bool {
+	// ...
+}
+```
+As you see in the examples when returning the struct it needs to be public. But since you can always make all fields private no harm is done by this. Also note that the proper documentation should be on the methods, not on the interface definition so it shows up correctly in IDEs and the GoDocs.
+
+### Provide an interface and a mock for optional use
+To avoid code duplication in the consumer code, the package can contain an interface as shown in the example above. It is not used by the package itself, it just serves as a default interface in case the consumer does not need any customization.
+
+Additionally if your package cannot be used "as-is" in unit tests (e.g., because it makes calls to external services) you can provide a mock implementation for the default interface in a `mock` subpackage. If you are working with [Testify Mocks](https://github.com/stretchr/testify#mock-package) it would look like this.
+
+```go
+package mock // import "github.com/name/my-sdk/mock"
+
+import "github.com/stretchr/testify/mock"
+
+type Thing struct {
+	mock.Mock
+}
+
+func (t *Thing) Foo() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
 ```
 
 ## Consistent header naming

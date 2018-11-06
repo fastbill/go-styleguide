@@ -24,6 +24,7 @@ experience and inspiration/ideas from conference talks.
 	- [Avoid testing unexported funcs](#avoid-testing-unexported-funcs)
 	- [Add examples to your test files to demonstrate usage](#add-examples-to-your-test-files-to-demonstrate-usage)
 - [Use linters](#use-linters)
+	- [Properly refactor when fixing complexity warnings](#properly-refactor-when-fixing-complexity-warnings)
 - [Use goimports](#use-goimports)
 - [Use meaningful variable names](#use-meaningful-variable-names)
 - [Avoid side effects](#avoid-side-effects)
@@ -448,6 +449,166 @@ gometalinter.v2 --install
 # Usage in the project workspace
 gometalinter.v2 --vendor ./...
 ```
+
+### Properly refactor when fixing complexity warnings 
+Sometimes the linter shows a warning about cyclomatic complexity, e.g., for the example below you will see something like this:
+```
+warning: cyclomatic complexity 13 of function DoLotsOfThings() is high (> 10) (gocyclo)
+```
+When fixing this it is important to still stick to CLEAN Code principles like keeping functions on the same level and not just refactor just as much that the warning disappears.
+
+<details>
+ <summary>Example</summary>
+
+**Example**
+```go
+func DoLotsOfThings(input1 []someStruct, input2 *someStruct) error {
+	for _, elem := range input1 {
+		if elem.Method() == "" || elem.Route() == "" {
+			return errors.New("some error")
+		}
+
+		if !strings.HasPrefix(elem.Route(), input2.Name) {
+			return errors.New("some error")
+		}
+
+		if elem.Handler() == nil {
+			return errors.New("some error")
+		}
+
+		if input2.someFunc == nil && !elem.IsPublic() {
+			return errors.New("some error")
+		}
+
+		if input2.someOtherFunc == nil {
+			return errors.New("some error")
+		}
+
+		switch c := elem.(type) {
+		case *SomeType1:
+			c.route = strings.TrimPrefix(c.route, input2.Name)
+			c.group = input2
+		case *SomeType2:
+			c.route = strings.TrimPrefix(c.route, input2.Name)
+		default:
+			return errors.New("unknown type")
+		}
+	}
+
+	return nil
+}
+```
+
+**Don't:**
+```go
+func DoLotsOfThings(input1 []someStruct, input2 *someStruct) error {
+	for _, elem := range input1 {
+		if elem.Method() == "" || elem.Route() == "" {
+			return errors.New("some error")
+		}
+
+		if !strings.HasPrefix(elem.Route(), input2.Name) {
+			return errors.New("some error")
+		}
+
+		if elem.Handler() == nil {
+			return errors.New("some error")
+		}
+
+		if input2.someFunc == nil && !elem.IsPublic() {
+			return errors.New("some error")
+		}
+
+		if input2.someOtherFunc == nil {
+			return errors.New("some error")
+		}
+
+		err := applySettings(elem)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func applySettings(elem someStruct) error {
+	switch c := elem.(type) {
+	case *SomeType1:
+		c.route = strings.TrimPrefix(c.route, input2.Name)
+		c.group = input2
+	case *SomeType2:
+		c.route = strings.TrimPrefix(c.route, input2.Name)
+	default:
+		return errors.New("unknown type")
+	}
+	return nil
+}
+```
+
+**Do:**
+```go
+func DoLotsOfThings(input1 []someStruct, input2 *someStruct) error {
+	for _, elem := range input1 {
+		if err := validateRouteAndMethod(elem, input2); err != nil {
+			return err
+		}
+
+		if err := validateFunc(elem, input2); err != nil {
+			return err
+		}
+
+		if err := applySettings(elem); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateRouteAndMethod(elem someStruct, input2 *someStruct) error {
+	if elem.Method() == "" || elem.Route() == "" {
+		return errors.New("some error")
+	}
+
+	if !strings.HasPrefix(elem.Route(), input2.Name) {
+		return errors.New("some error")
+	}
+
+	return nil
+}
+
+func validateFunc(elem someStruct, input2 *someStruct) error {
+	if elem.Handler() == nil {
+		return errors.New("some error")
+	}
+
+	if input2.someFunc == nil && !elem.IsPublic() {
+		return errors.New("some error")
+	}
+
+	if input2.someOtherFunc == nil {
+		return errors.New("some error")
+	}
+
+	return nil
+}
+
+func applySettings(elem someStruct) error {
+	switch c := elem.(type) {
+	case *SomeType1:
+		c.route = strings.TrimPrefix(c.route, input2.Name)
+		c.group = input2
+	case *SomeType2:
+		c.route = strings.TrimPrefix(c.route, input2.Name)
+	default:
+		return errors.New("unknown type")
+	}
+	return nil
+}
+```
+
+</details>
 
 ## Use goimports
 
@@ -980,3 +1141,5 @@ w.Header.Set("content-Type")
 r.Header.Get("Authorization")
 w.Header.Set("Content-Type")
 ```
+
+

@@ -968,7 +968,7 @@ func (t *Thing) Foo() bool {
 ```
 
 ### Extend interface when embedding structs
-If you embedd an existing struct definition in the new struct you define in your package take this in consideration when providing an interface in your package. In the example below `Service` was embedded and it fulfills the `Servicer` interface. Now the interface that abstracts `CustomService` should extend the `Servicer` interface so that if the consumer of the package that user the interface has access to both sets of methods. This of course only applies if it is known that the consumer will need both method sets. Otherwise interfaces should be kept small.
+If you embed an existing struct definition in a new struct you define in your package take this in consideration when providing an interface in your package. In the example below `Service` was embedded and it fulfills the `Servicer` interface. Now the interface that abstracts `CustomService` should extend the `Servicer` interface so that if the consumer of the package that user the interface has access to both sets of methods. This of course only applies if it is known that the consumer will need both method sets. Otherwise interfaces should be kept small.
 
 **Do:**
 ```go

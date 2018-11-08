@@ -451,7 +451,7 @@ gometalinter.v2 --vendor ./...
 ```
 
 ### Properly refactor when fixing complexity warnings 
-Sometimes the linter shows a warning about cyclomatic complexity, e.g., for the example below you will see something like this:
+Sometimes the linter shows a warning about cyclomatic complexity, i.e. for the example below you will see something like this:
 ```
 warning: cyclomatic complexity 13 of function DoLotsOfThings() is high (> 10) (gocyclo)
 ```

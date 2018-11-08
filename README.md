@@ -531,19 +531,6 @@ func DoLotsOfThings(input1 []someStruct, input2 *someStruct) error {
 
 	return nil
 }
-
-func applySettings(elem someStruct) error {
-	switch c := elem.(type) {
-	case *SomeType1:
-		c.route = strings.TrimPrefix(c.route, input2.Name)
-		c.group = input2
-	case *SomeType2:
-		c.route = strings.TrimPrefix(c.route, input2.Name)
-	default:
-		return errors.New("unknown type")
-	}
-	return nil
-}
 ```
 
 **Do:**
@@ -563,47 +550,6 @@ func DoLotsOfThings(input1 []someStruct, input2 *someStruct) error {
 		}
 	}
 
-	return nil
-}
-
-func validateRouteAndMethod(elem someStruct, input2 *someStruct) error {
-	if elem.Method() == "" || elem.Route() == "" {
-		return errors.New("some error")
-	}
-
-	if !strings.HasPrefix(elem.Route(), input2.Name) {
-		return errors.New("some error")
-	}
-
-	return nil
-}
-
-func validateFunc(elem someStruct, input2 *someStruct) error {
-	if elem.Handler() == nil {
-		return errors.New("some error")
-	}
-
-	if input2.someFunc == nil && !elem.IsPublic() {
-		return errors.New("some error")
-	}
-
-	if input2.someOtherFunc == nil {
-		return errors.New("some error")
-	}
-
-	return nil
-}
-
-func applySettings(elem someStruct) error {
-	switch c := elem.(type) {
-	case *SomeType1:
-		c.route = strings.TrimPrefix(c.route, input2.Name)
-		c.group = input2
-	case *SomeType2:
-		c.route = strings.TrimPrefix(c.route, input2.Name)
-	default:
-		return errors.New("unknown type")
-	}
 	return nil
 }
 ```

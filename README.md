@@ -48,6 +48,7 @@ experience and inspiration/ideas from conference talks.
 	- [Return the error](#return-the-error)
 	- [Return a struct on setup](#return-a-struct-on-setup)
 	- [Provide an interface and a mock for optional use](#provide-an-interface-and-a-mock-for-optional-use)
+	- [Extend interface when embedding structs](#extend-interface-when-embedding-structs)
 - [Consistent header naming](#consistent-header-naming)
 
 ## Add context to errors
@@ -1070,6 +1071,27 @@ type Thing struct {
 func (t *Thing) Foo() bool {
 	args := m.Called()
 	return args.Bool(0)
+}
+```
+
+### Extend interface when embedding structs
+If you embed an existing struct definition in a new struct you define in your package take this in consideration when providing an interface in your package. In the example below `Service` was embedded and it fulfills the `Servicer` interface. Now the interface that abstracts `CustomService` should extend the `Servicer` interface so that if the consumer of the package that user the interface has access to both sets of methods. This of course only applies if it is known that the consumer will need both method sets. Otherwise interfaces should be kept small.
+
+**Do:**
+```go
+type CustomService struct {
+	service.Service
+	field1 string
+	field2 string
+}
+
+func (c *CustomService) SomeMethod() {
+	// ...
+}
+
+type CustomerServicer interface {
+	service.Servicer
+	SomeMethod()
 }
 ```
 

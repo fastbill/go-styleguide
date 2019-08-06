@@ -11,11 +11,11 @@ experience and inspiration/ideas from conference talks.
 - [Dependency management](#dependency-management)
 	- [Use dep](#use-dep)
 	- [Use Semantic Versioning](#use-semantic-versioning)
-	- [Avoid unnessary version lockdown](#avoid-unnessary-version-lockdown)
+	- [Avoid unnecessary version lock-down](#avoid-unnecessary-version-lock-down)
 - [Structured logging](#structured-logging)
 - [Avoid global variables](#avoid-global-variables)
 - [Testing](#testing)
-	- [Use testify as assertion libary](#use-testify-as-assertion-libary)
+	- [Use testify as assertion library](#use-testify-as-assertion-library)
 	- [Use sub-tests to structure functional tests](#use-sub-tests-to-structure-functional-tests)
 	- [Use table driven tests](#use-table-driven-tests)
 	- [Avoid unnecessary mocks](#avoid-unnecessary-mocks)
@@ -103,7 +103,7 @@ Since `dep` can handle versions, tag your packages using
 [Semantic Versioning](http://semver.org).  
 The git tag for your go package should have the format `v<major>.<minor>.<patch>`, e.g., `v1.0.1`.
 
-### Avoid unnessary version lockdown
+### Avoid unnecessary version lock-down
 If possible only lock the major version in the `Gopkg.toml` file.  
 
 **Don't:**
@@ -228,7 +228,7 @@ func yetAnotherFunc() {
 
 ## Testing
 
-### Use testify as assertion libary
+### Use testify as assertion library
 
 **Don't:**
 ```go
@@ -386,7 +386,7 @@ func ExamleSomeInterface_SomeMethod(){
 	// Output: someResult, <nil>
 }
 ```
-This is expecially relevant for modules that are supposed to be used by multiple projects.
+This is especially relevant for modules that are supposed to be used by multiple projects.
 
 ## Use linters
 

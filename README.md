@@ -1,50 +1,44 @@
-# Go Styleguide
+# Go Styleguide <!-- omit in toc --> 
 
 This serves as a supplement to
 [Effective Go](https://golang.org/doc/effective_go.html), based on years of
 experience and inspiration/ideas from conference talks.
 
-## Table of contents
+## Table of contents <!-- omit in toc --> 
 
 - [Add context to errors](#add-context-to-errors)
 - [Consistent error and log messages](#consistent-error-and-log-messages)
-- [Dependency managemenet](#dependency-management)
+- [Dependency management](#dependency-management)
 	- [Use dep](#use-dep)
 	- [Use Semantic Versioning](#use-semantic-versioning)
-	- [Avoid unnessary version lockdown](#avoid-unnessary-version-lockdown)
-	- [Avoid gopkg.in](#avoid-gopkgin)
+	- [Avoid unnecessary version lock-down](#avoid-unnecessary-version-lock-down)
 - [Structured logging](#structured-logging)
 - [Avoid global variables](#avoid-global-variables)
 - [Testing](#testing)
-	- [Use testify as assert libary](#use-testify-as-assert-libary)
-	- [Use subtests to structure functional tests](#use-sub-tests-to-structure-functional-tests)
-	- [Use table-driven tests](#use-table-driven-tests)
-	- [Avoid mocks](#avoid-mocks)
+	- [Use testify as assertion library](#use-testify-as-assertion-library)
+	- [Use sub-tests to structure functional tests](#use-sub-tests-to-structure-functional-tests)
+	- [Use table driven tests](#use-table-driven-tests)
+	- [Avoid unnecessary mocks](#avoid-unnecessary-mocks)
 	- [Avoid DeepEqual](#avoid-deepequal)
 	- [Avoid testing unexported funcs](#avoid-testing-unexported-funcs)
 	- [Add examples to your test files to demonstrate usage](#add-examples-to-your-test-files-to-demonstrate-usage)
 - [Use linters](#use-linters)
 	- [Properly refactor when fixing complexity warnings](#properly-refactor-when-fixing-complexity-warnings)
-- [Use goimports](#use-goimports)
 - [Use meaningful variable names](#use-meaningful-variable-names)
-- [Avoid side effects](#avoid-side-effects)
 - [Favour pure functions](#favour-pure-functions)
-- [Don't over-interface](#dont-over-interface)
+- [Keep interfaces small](#keep-interfaces-small)
 - [Don't under-package](#dont-under-package)
 - [Handle signals](#handle-signals)
 - [Divide imports](#divide-imports)
-- [Avoid unadorned return](#avoid-unadorned-return)
-- [Use canonical import path](#use-canonical-import-path)
+- [Avoid naked return](#avoid-naked-return)
 - [Avoid empty interface](#avoid-empty-interface)
 - [Order functions public-private and top-down](#order-functions-public-private-and-top-down)
-- [Use internal packages](#use-internal-packages)
 - [Avoid helper/util](#avoid-helperutil)
-- [Embed binary data](#embed-binary-data)
-- [Use functional options](#use-functional-options)
 - [Structs](#structs)
 	- [Use named structs](#use-named-structs)
 	- [Avoid new keyword](#avoid-new-keyword)
-- [Packages/SDKs](#packages-sdks)
+	- [Anonymous structs are ok for JSON parsing](#anonymous-structs-are-ok-for-json-parsing)
+- [Packages/SDKs](#packagessdks)
 	- [Return the error](#return-the-error)
 	- [Return a struct on setup](#return-a-struct-on-setup)
 	- [Provide an interface and a mock for optional use](#provide-an-interface-and-a-mock-for-optional-use)
@@ -76,11 +70,9 @@ if err != nil {
 }
 ```
 
-Wrapping errors with a custom message provides context as it gets propagated up
-the stack.
-This does not always make sense.
-If you're unsure if the context of a returned error is at all times sufficient,
-wrap it.
+Wrapping errors with a custom message provides context as it gets propagated up the stack.
+This is not always necessary, use your judgement at which level in the code it makes most sense to add more context. 
+If you're unsure if the context of a returned error is at all times sufficient, wrap it.
 Make sure the root error is still accessible somehow for type checking.
 
 ## Consistent error and log messages
@@ -111,7 +103,7 @@ Since `dep` can handle versions, tag your packages using
 [Semantic Versioning](http://semver.org).  
 The git tag for your go package should have the format `v<major>.<minor>.<patch>`, e.g., `v1.0.1`.
 
-### Avoid unnessary version lockdown
+### Avoid unnecessary version lock-down
 If possible only lock the major version in the `Gopkg.toml` file.  
 
 **Don't:**
@@ -127,11 +119,6 @@ If possible only lock the major version in the `Gopkg.toml` file.
   name = "github.com/stretchr/testify"
   version = "^1.1.4"
 ```
-
-### Avoid gopkg.in
-While [gopkg.in](http://labix.org/gopkg.in) is a great tool and was really
-useful, it tags one version and is not meant to work with `dep`.
-Prefer direct import and specify version in `Gopkg.toml`.
 
 ## Structured logging
 
@@ -192,22 +179,7 @@ func (h *Handlers) DropHandler(w http.ResponseWriter, r *http.Request) {
 	h.DB.Exec("DROP DATABASE prod")
 }
 ```
-Use structs to encapsulate the variables and make them available only to those functions that actually need them by making them methods implemented for that struct.  
-
-Alternatively higher-order functions can be used to inject dependencies via closures.
-```go
-func main() {
-	db := // ...
-	http.HandleFunc("/drop", DropHandler(db))
-	// ...
-}
-
-func DropHandler(db *sql.DB) http.HandleFunc {
-	return func (w http.ResponseWriter, r *http.Request) {
-		db.Exec("DROP DATABASE prod")
-	}
-}
-```
+Use structs to encapsulate the variables and make them available only to those functions that actually need them by making them methods implemented for that struct.
 
 If you really need global variables or constants, e.g., for defining errors or string constants, put them at the top of your file.
 
@@ -219,7 +191,7 @@ func someFunc() {
 	//...
 }
 
-route = "/some-route"
+const route = "/some-route"
 
 func someOtherFunc() {
 	// usage of route
@@ -236,7 +208,7 @@ func yetAnotherFunc() {
 ```go
 import "xyz"
 
-route = "/some-route"
+const route = "/some-route"
 
 var NotFoundErr = errors.New("not found")
 
@@ -256,7 +228,7 @@ func yetAnotherFunc() {
 
 ## Testing
 
-### Use testify as assert libary
+### Use testify as assertion library
 
 **Don't:**
 ```go
@@ -277,11 +249,12 @@ func TestAdd(t *testing.T) {
 	actual := 2 + 2
 	expected := 4
 	assert.Equal(t, expected, actual)
+	// OR
+	require.Equal(t, expected, actual)
 }
 ```
 
-Using assert libraries makes your tests more readable, requires less code and
-provides consistent error output.
+Using assert libraries makes your tests more readable, requires less code and provides consistent error output.
 
 ### Use sub-tests to structure functional tests
 **Don't:**
@@ -347,7 +320,7 @@ Using table driven tests in combination with subtests gives you direct insight
 about which case is failing and which cases are tested.
 – [Mitchell Hashimoto at GopherCon 2017](https://youtu.be/8hQG7QlcLBk?t=7m34s)
 
-### Avoid mocks
+### Avoid unnecessary mocks
 
 **Don't:**
 ```go
@@ -397,37 +370,12 @@ func TestSomething(t *testing.T) {
 }
 ```
 
-**Do:**
-```go
-type myType struct {
-	id         int
-	name       string
-	irrelevant []byte
-}
-
-func (m *myType) testString() string {
-	return fmt.Sprintf("%d.%s", m.id, m.name)
-}
-
-func TestSomething(t *testing.T) {
-	actual := &myType{/* ... */}
-	expected := &myType{/* ... */}
-	if actual.testString() != expected.testString() {
-		t.Errorf("Expected '%s', got '%s'", expected.testString(), actual.testString())
-	}
-	// or assert.Equal(t, actual.testString(), expected.testString())
-}
-```
-
-Using `testString()` for comparing structs helps on complex structs with many
-fields that are not relevant for the equality check.
-This approach only makes sense for very big or tree-like structs.
+Instead use the [cmp module](https://github.com/google/go-cmp) or serialize the structs before comparision.
 – [Mitchell Hashimoto at GopherCon 2017](https://youtu.be/8hQG7QlcLBk?t=30m45s)
 
 ### Avoid testing unexported funcs
-
-Only test unexported funcs if you can't access a path via exported funcs.
-Since they are unexported, they are prone to change.
+Only exported functions should be tested so that packages can be more easily refactored without touching the tests as long as the public interface stays the same.
+Only test unexported functions if you can't access the execution path via the exported functions.
 
 ### Add examples to your test files to demonstrate usage
 ```go
@@ -438,8 +386,11 @@ func ExamleSomeInterface_SomeMethod(){
 	// Output: someResult, <nil>
 }
 ```
+This is especially relevant for modules that are supposed to be used by multiple projects.
 
 ## Use linters
+
+Of course, `gofmt` is a must. Only commit formatted files.
 
 Use all the linters included in [gometalinter](https://github.com/alecthomas/gometalinter) to lint your projects before committing.
 ```bash
@@ -450,6 +401,8 @@ gometalinter.v2 --install
 # Usage in the project workspace
 gometalinter.v2 --vendor ./...
 ```
+
+Also tools like [goimports](https://godoc.org/golang.org/x/tools/cmd/goimports) can be used in most IDEs to format/update the import statements as you go.
 
 ### Properly refactor when fixing complexity warnings 
 Sometimes the linter shows a warning about cyclomatic complexity, i.e. for the example below you will see something like this:
@@ -557,12 +510,8 @@ func DoLotsOfThings(input1 []someStruct, input2 *someStruct) error {
 
 </details>
 
-## Use goimports
-
-Only commit gofmt'd files. Use `goimports` for this to format/update the import statements as well.
-
 ## Use meaningful variable names
-Avoid single-letter variable names. They may seem more readable to you at the moment of writing but they make the code hard to understand for your colleagues and your future self.  
+Single-letter variable names should be used with care. They may seem more readable to you at the moment of writing but they make the code hard to understand for your colleagues and your future self.  
 
 **Don't:**
 ```go
@@ -596,19 +545,9 @@ Single-letter variable names are fine in the following cases.
 	* `i` for the index in a loop
 * They name the receiver of a method, e.g., `func (s *someStruct) myFunction(){}`
 
-Of course also too long variables names like `createInstanceOfMyStructFromString` should be avoided.
+Of course also too long variables names like `createInstanceOfMyStructFromString` should be avoided as well.
 
-## Avoid side-effects
-
-**Don't:**
-```go
-func init() {
-	someStruct.Load()
-}
-```
-
-Side effects are only okay in special cases (e.g. parsing flags in a cmd).
-If you find no other way, rethink and refactor.
+For more guidance read [this section of Dave Chaneys blog](https://dave.cheney.net/practical-go/presentations/qcon-china.html#_identifiers).
 
 ## Favour pure functions
 
@@ -640,21 +579,20 @@ func Marshal(some *Thing) ([]bytes, error) {
 // ...
 ```
 
-This is obviously not possible at all times, but trying to make every possible
-func pure makes code more understandable and improves debugging.
+This is obviously not possible at all times, but trying to make functions pure if possible makes the code easier to follow and to test.
 
-## Don't over-interface
+## Keep interfaces small
+If possible, rely on existing interfaces when specifying expected input arguments. Also do not make functions expect larger interfaces then they actually need to perform their task.
+
+When you create interfaces yourself, then remember: The smaller the interfaces, the more powerful they are. If you need bigger interfaces try to use composition to build them up from smaller ones.
 
 **Don't:**
 ```go
 type Server interface {
 	Serve() error
-	Some() int
-	Fields() float64
-	That() string
-	Are([]byte) error
-	Not() []string
-	Necessary() error
+	String() string
+	SomeOtherMethod() float64
+	YetAnotherMethod() int
 }
 
 func debug(srv Server) {
@@ -672,6 +610,10 @@ type Server interface {
 	Serve() error
 }
 
+func (s *Server) String() {
+	// ...
+}
+
 func debug(v fmt.Stringer) {
 	fmt.Println(v.String())
 }
@@ -681,12 +623,9 @@ func run(srv Server) {
 }
 ```
 
-Favour small interfaces and only expect the interfaces you need in your funcs.
-
 ## Don't under-package
 
-Deleting or merging packages is far more easier than splitting big ones up.
-When unsure if a package can be split, do it.
+Deleting or merging packages is far easier than splitting big ones up. When unsure if a package can be split, do it.
 
 ## Handle signals
 
@@ -726,8 +665,7 @@ func main() {
 }
 ```
 
-Handling signals allows us to gracefully stop our server, close open files and
-connections and therefore prevent file corruption among other things.
+Handling signals allows us to gracefully stop our server, close open files and connections and therefore prevent file corruption among other things.
 
 ## Divide imports
 
@@ -765,7 +703,7 @@ Divide imports into four groups sorted from internal to external for readability
 3. Company internal packages
 4. External packages
 
-## Avoid unadorned return
+## Avoid naked return
 
 **Don't:**
 ```go
@@ -783,23 +721,7 @@ func run() (n int, err error) {
 }
 ```
 
-Named returns are good for documentation, unadorned returns are bad for
-readability and error-prone.
-
-## Use canonical import path
-
-**Don't:**
-```go
-package sub
-```
-
-**Do:**
-```go
-package sub // import "github.com/my-package/pkg/sth/else/sub"
-```
-
-Adding the canonical import path adds context to the package and makes
-importing easy.
+Named returns are good for documentation, naked returns are bad for readability and error-prone.
 
 ## Avoid empty interface
 
@@ -810,7 +732,7 @@ func run(foo interface{}) {
 }
 ```
 
-Empty interfaces make code more complex and unclear, avoid them where you can.
+Empty interfaces make code more complex and unclear, avoid them where you can. With `interface{}` you do not really get the benefits of a typed language.
 
 ## Order functions public-private and top-down
 When arranging your functions inside a package go by these rules in the given order.
@@ -866,67 +788,13 @@ func someOtherHelper() string {
 Putting `main()` first makes reading the file a lot more easier. Only the
 `init()` function should be above it.
 
-## Use internal packages
-
-If you're creating a cmd, consider moving libraries to `internal/` to prevent
-import of unstable, changing packages.  
-
-Do not use the internal package if your code contains types that are needed by SDKs or other components.
-
 ## Avoid helper/util
 
-Use clear names and try to avoid creating a `helper.go`, `utils.go` or even
-package.
-
-## Embed binary data
-
-To enable single-binary deployments, use tools to add templates and other static
-assets to your binary
-(e.g. [github.com/jteeuwen/go-bindata](https://github.com/jteeuwen/go-bindata)).
-
-## Use functional options
-
-```go
-func main() {
-	// ...
-	startServer(
-		WithPort(8080),
-		WithTimeout(1 * time.Second),
-	)
-}
-
-type Config struct {
-	port    int
-	timeout time.Duration
-}
-
-type ServerOpt func(*Config)
-
-func WithPort(port int) ServerOpt {
-	return func(cfg *Config) {
-		cfg.port = port
-	}
-}
-
-func WithTimeout(timeout time.Duration) ServerOpt {
-	return func(cfg *Config) {
-		cfg.timeout = timeout
-	}
-}
-
-func startServer(opts ...ServerOpt) {
-	cfg := new(Config)
-	for _, fn := range opts {
-		fn(cfg)
-	}
-
-	// ...
-}
-```
+Use clear names and try to avoid creating a `helper.go`, `utils.go` or even package.
 
 ## Structs
 ### Use named structs
-If a struct has more than one field include field names when instantiating it.
+Always include field names when instantiating it. This prevents your code from breaking in case an additional field is added to the struct.
 
 **Don't:**
 ```go
@@ -959,6 +827,19 @@ s := new(MyStruct)
 **Do:**
 ```go
 s := &MyStruct{}
+```
+
+### Anonymous structs are ok for JSON parsing
+If you need parse a JSON request and the struct you would need to create for that purpose is not used anywhere else in the application, use an anonymous struct.
+This has a small performance penalty but it improves the readability because the available fields in the struct are directly visible.
+
+```go
+input := struct{
+	Name string `json:"name"`
+}{}
+
+err := json.NewDecoder(req.Body).Decode(&input)
+fmt.Println(input.Name)
 ```
 
 ## Packages/SDKs
@@ -1013,7 +894,7 @@ func CallOtherService() error {
 ```
 
 ### Return a struct on setup
-Interfaces should be a matter of the consumer of your package. When setting up your SDK you should return a struct instead of interface. That way the consumer can easily extend it by embedding it, adding methods etc. and then writing an interface that fits the consumers use case.  
+Interfaces should be a matter of the consumer of your package. When setting up your SDK you should return a struct instead of an interface. That way the consumer can easily extend it by embedding it, adding methods etc. and then writing an interface that fits the consumers use case.  
 See also [Go Wiki](https://github.com/golang/go/wiki/CodeReviewComments#interfaces).
 
 **Don't:**
@@ -1077,7 +958,6 @@ func (t *Thing) Foo() bool {
 ### Extend interface when embedding structs
 If you embed an existing struct definition in a new struct you define in your package take this in consideration when providing an interface in your package. In the example below `Service` was embedded and it fulfills the `Servicer` interface. Now the interface that abstracts `CustomService` should extend the `Servicer` interface so that if the consumer of the package that user the interface has access to both sets of methods. This of course only applies if it is known that the consumer will need both method sets. Otherwise interfaces should be kept small.
 
-**Do:**
 ```go
 type CustomService struct {
 	service.Service
@@ -1109,5 +989,3 @@ w.Header.Set("content-Type")
 r.Header.Get("Authorization")
 w.Header.Set("Content-Type")
 ```
-
-

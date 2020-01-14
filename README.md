@@ -7,13 +7,14 @@ This serves as a supplement to [Effective Go](https://golang.org/doc/effective_g
 - [Errors And Logs](#errors-and-logs)
 	- [Consistent Message Format](#consistent-message-format)
 	- [Add Context to Errors](#add-context-to-errors)
+	- [Visually Group Error Handling for a Function](#visually-group-error-handling-for-a-function)
+	- [Keep (Shared) Errors In a Separate File](#keep-shared-errors-in-a-separate-file)
 	- [Use Structured Logging](#use-structured-logging)
 - [Dependency Management](#dependency-management)
 	- [Use Go Modules](#use-go-modules)
 	- [Use Semantic Versioning](#use-semantic-versioning)
 	- [Go Modules and Docker](#go-modules-and-docker)
 	- [Go Modules and Private Git Repositories](#go-modules-and-private-git-repositories)
-- [Structured Logging](#structured-logging)
 - [Avoid Global Variables](#avoid-global-variables)
 - [Testing](#testing)
 	- [Use Testify as Assertion Library](#use-testify-as-assertion-library)
@@ -22,7 +23,7 @@ This serves as a supplement to [Effective Go](https://golang.org/doc/effective_g
 	- [Avoid Unnecessary Mocks](#avoid-unnecessary-mocks)
 	- [Avoid DeepEqual](#avoid-deepequal)
 	- [Avoid Testing Unexported Functions](#avoid-testing-unexported-functions)
-	- [Avoid &quot;_test&quot; Packages](#avoid-quot_testquot-packages)
+	- [Avoid "_test" Packages](#avoid-_test-packages)
 	- [Add Examples to Your Test Files to Demonstrate Usage](#add-examples-to-your-test-files-to-demonstrate-usage)
 - [Use Linters](#use-linters)
 	- [Properly Refactor When Fixing Complexity Warnings](#properly-refactor-when-fixing-complexity-warnings)
@@ -40,7 +41,7 @@ This serves as a supplement to [Effective Go](https://golang.org/doc/effective_g
 - [Avoid Helper/Util](#avoid-helperutil)
 - [Structs](#structs)
 	- [Use Named Structs](#use-named-structs)
-	- [Avoid &quot;new&quot; Keyword](#avoid-quotnewquot-keyword)
+	- [Avoid "new" Keyword](#avoid-new-keyword)
 	- [Anonymous Structs Are Ok for JSON Parsing](#anonymous-structs-are-ok-for-json-parsing)
 - [Packages/SDKs](#packagessdks)
 	- [Return the Error](#return-the-error)
@@ -95,6 +96,40 @@ This is not always necessary, use your judgement at which level in the code it m
 If you're unsure if the context of a returned error is at all times sufficient, wrap it.
 Make sure the root error is still accessible somehow for type checking.
 
+### Visually Group Error Handling for a Function
+**Don't:**
+```go
+err := myFunction()
+
+if err == ErrNotFound {
+	return httperrors.New(http.StatusNotFound, err)
+}
+
+if err != nil {
+	return err
+}
+```
+
+**Do:**
+```go
+err := myFunction()
+if err == ErrNotFound {
+	return httperrors.New(http.StatusNotFound, err)
+} else if err != nil {
+	return err
+}
+```
+
+Although the `else` statement is not logically necessary it helps to keep all the error handling for the error returned by `myFunction` tightly grouped together so the function and its error handling constitute one visual unit.
+
+### Keep (Shared) Errors In a Separate File
+If your package consists of multiple files consider putting all custom errors and error variables for that package into a separate file called `error.go`. That way they are easy to find and can be reused by other developers or your future self.
+
+This is particularly important if an error variable is used in multiple files of the package, e.g. this standard one from a repository package:
+```go
+var ErrNotFound = errors.New("entity not found")
+```
+
 ### Use Structured Logging
 
 **Don't:**
@@ -148,29 +183,6 @@ By default Go tries to fetch modules from the official Go Proxy server. In that 
 go env -w GOPRIVATE=git.yourcompany.com
 ```
 Remember to also apply this environment variable in CI pipelines.
-
-
-## Structured Logging
-
-**Don't:**
-```go
-log.Printf("listening on :%d", port)
-http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
-// 2017/07/29 13:05:50 Listening on :80
-```
-
-**Do:**
-```go
-import "github.com/sirupsen/logrus"
-// ...
-
-logger.WithField("port", port).Info("server is listening")
-http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
-// {"level":"info","msg":"Server is listening","port":"7000","time":"2017-12-24T13:25:31+01:00"}
-```
-
-This is a harmless example, but using structured logging makes debugging and log
-parsing easier.
 
 ## Avoid Global Variables
 
@@ -259,6 +271,7 @@ func yetAnotherFunc() {
 ## Testing
 
 ### Use Testify as Assertion Library
+Using an assertion library makes your tests more readable, requires less code and provides consistent error output. [Testify](https://github.com/stretchr/testify) is a powerful assertion library that contains a lot of nice helpers.
 
 **Don't:**
 ```go
@@ -279,12 +292,49 @@ func TestAdd(t *testing.T) {
 	actual := 2 + 2
 	expected := 4
 	assert.Equal(t, expected, actual)
-	// OR
-	require.Equal(t, expected, actual)
 }
 ```
 
-Using assert libraries makes your tests more readable, requires less code and provides consistent error output.
+Besides the `assert` package used above [testify](https://github.com/stretchr/testify) also provides a `require` package with the same functions. When using `require` instead of `assert`, the test execution is stopped in case the assertion fails. This is very helpful if the following asserts only make sense if the first one succeeds and would only lead to confusing error messages otherwise.
+
+**Don't:**
+```go
+import "github.com/stretchr/testify/assert"
+
+func TestMyHandler(t *testing.T) {
+	err := MyHandler()
+	assert.Error(t, err)
+	assert.Equal(t, http.StatusNotFound, err.(*httperrors.HTTPError).StatusCode)
+	// the second assert would be executed and even if the first assert was not successful
+	// and it would result in:
+	// "panic: interface conversion: error is nil, not *httperrors.HTTPError"
+}
+
+// OR
+
+func TestMyHandler(t *testing.T) {
+	err := MyHandler()
+	if assert.Error(t, err) {
+		assert.Equal(t, http.StatusNotFound, err.(*httperrors.HTTPError).StatusCode)
+	}
+}
+```
+
+**Do:**
+```go
+import (
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestMyHandler(t *testing.T) {
+	err := MyHandler()
+	require.Error(t, err)
+	assert.Equal(t, http.StatusNotFound, err.(*httperrors.HTTPError).StatusCode)
+	// Now the assert that analyzes the error further is only executed if there was actually an error.
+	// If the error is nil the test execution stops after the require.Error.
+}
+```
 
 ### Use Sub-Tests to Structure Functional Tests
 **Don't:**
@@ -761,7 +811,6 @@ import (
 
 	"git.fastbill.com/another-project/pkg/some-lib"
 	"git.fastbill.com/yet-another-project/pkg/some-lib"
-
 	"github.com/some/external/pkg"
 	"github.com/some-other/external/pkg"
 )
@@ -770,8 +819,7 @@ import (
 Divide imports into four groups sorted from internal to external for readability:
 1. Standard library
 2. Project internal packages
-3. Company internal packages
-4. External packages
+3. External packages (can be provided by third-party or in-house)
 
 ## Avoid Naked Return
 
@@ -1024,6 +1072,8 @@ func (t *Thing) Foo() bool {
 	return args.Bool(0)
 }
 ```
+
+To generate testify mocks for interfaces the [go-mock-gen tool](https://github.com/fastbill/go-mock-gen) can be used.
 
 ### Extend Interface When Embedding Structs
 If you embed an existing struct definition in a new struct you define in your package take this in consideration when providing an interface in your package. In the example below `Service` was embedded and it fulfills the `Servicer` interface. Now the interface that abstracts `CustomService` should extend the `Servicer` interface so that if the consumer of the package that user the interface has access to both sets of methods. This of course only applies if it is known that the consumer will need both method sets. Otherwise interfaces should be kept small.

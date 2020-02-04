@@ -43,6 +43,7 @@ This serves as a supplement to [Effective Go](https://golang.org/doc/effective_g
 	- [Use Named Structs](#use-named-structs)
 	- [Avoid "new" Keyword](#avoid-new-keyword)
 	- [Anonymous Structs Are Ok for JSON Parsing](#anonymous-structs-are-ok-for-json-parsing)
+	- [Consider providing a "Constructor"](#consider-providing-a-constructor)
 - [Packages/SDKs](#packagessdks)
 	- [Return the Error](#return-the-error)
 	- [Return a Struct on Setup](#return-a-struct-on-setup)
@@ -77,9 +78,7 @@ if err != nil {
 	return err
 }
 ```
-
-Using the approach above can lead to unclear error messages because of missing
-context.
+Using the approach above can lead to unclear error messages because of missing context, especially as the error might travel up the function chain before being logged for example.
 
 **Do:**
 ```go
@@ -91,10 +90,9 @@ if err != nil {
 ```
 See [the official blog post](https://blog.golang.org/go1.13-errors) for more details on the new error wrapping introduced in Go 1.13.
 
-Wrapping errors with a custom message provides context as it gets propagated up the stack.
-This is not always necessary, use your judgement at which level in the code it makes most sense to add more context. 
-If you're unsure if the context of a returned error is at all times sufficient, wrap it.
-Make sure the root error is still accessible somehow for type checking.
+As a general rule you should always add context to your errors via `fmt.Errorf`. This way you build up a good "text trace" as the error travels up the stack, e.g. `failed to create new account: failed to save API credentials to DB: connection error`.
+
+Adding additional properties like `fileName` in the example above is optional as it sometimes just leads to duplication. Many Go errors (like errors from parsing) already contain all the necessary information (besides the context).
 
 ### Visually Group Error Handling for a Function
 **Don't:**
@@ -958,6 +956,29 @@ input := struct{
 
 err := json.NewDecoder(req.Body).Decode(&input)
 fmt.Println(input.Name)
+```
+
+### Consider providing a "Constructor"
+If your struct contains fields that need to be set to properly work with it or some struct fields are generated, it makes sense to provide a constructor for your struct. The naming convention is to call the constructor `New<StructName>`.
+
+```go
+type Context struct {
+	userID uint64
+	accountID uint64
+	requestID string
+}
+
+func NewContext(userID, accountID uint64) (*Context, error) {
+	if userID == 0 || accountID == 0 {
+		return errors.New("invalid arguments")
+	}
+
+	return &Context{
+		userID: userID,
+		accountID: accountID,
+		requestID: generateRequestID(),
+	}
+}
 ```
 
 ## Packages/SDKs

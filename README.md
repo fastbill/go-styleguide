@@ -66,7 +66,7 @@ ReadFailError := errors.New("Failed to read file")
 **Do:**
 ```go
 logger.Print("something went wrong")
-ErrReadFailed := errors.New("Failed to read file")
+ErrReadFailed := errors.New("failed to read file")
 ```
 
 ### Add Context to Errors

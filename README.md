@@ -160,7 +160,7 @@ Since Go Modules can handle versions, tag your packages using [Semantic Versioni
 The git tag for your go package should have the format `v<major>.<minor>.<patch>`, e.g., `v1.0.1`.
 
 ### Go Modules and Docker
-If you are working with Docker you can safe yourself some trouble by using the Go modules in vendored mode. By default Go will keep all your third party libraries in one place (e.g. `~/go/pkg/mod`). When building a Docker image, Docker is not allowed to access anything outside of the current scope (the application directory). That means it will not be able to access and include the external Go modules when building the image. You can force Go to make a copy of the dependencies in a folder called `vendor` in the application directory. This is done by running `go mod vendor`.  
+If you are working with Docker you can save yourself some trouble by using the Go modules in vendored mode. By default Go will keep all your third party libraries in one place (e.g. `~/go/pkg/mod`). When building a Docker image, Docker is not allowed to access anything outside of the current scope (the application directory). That means it will not be able to access and include the external Go modules when building the image. You can force Go to make a copy of the dependencies in a folder called `vendor` in the application directory. This is done by running `go mod vendor`.  
 Since Go 1.14 all other Go commands (go test, go build, ...) will automatically use the the `vendor` folder if it exists. No need to explicitly set `-mod=vendor` anymore.
 
 ### Go Modules and Private Git Repositories

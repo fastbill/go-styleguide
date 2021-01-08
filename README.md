@@ -815,7 +815,7 @@ import (
 )
 ```
 
-Divide imports into four groups sorted from internal to external for readability:
+Divide imports into three groups sorted from internal to external for readability:
 1. Standard library
 2. Project internal packages
 3. External packages (can be provided by third-party or in-house)

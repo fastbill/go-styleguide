@@ -37,7 +37,7 @@ This serves as a supplement to [Effective Go](https://golang.org/doc/effective_g
 - [Structure Import Statements](#structure-import-statements)
 - [Avoid Naked Return](#avoid-naked-return)
 - [Avoid Empty Interface](#avoid-empty-interface)
-- [Order Functions Public-Private and Top-Down](#order-functions-public-private-and-top-down)
+- [Order Functions Top-Down](#order-functions-top-down)
 - [Avoid Helper/Util](#avoid-helperutil)
 - [Structs](#structs)
 	- [Use Named Structs](#use-named-structs)
@@ -161,7 +161,7 @@ The git tag for your go package should have the format `v<major>.<minor>.<patch>
 
 ### Go Modules and Docker
 If you are working with Docker you can save yourself some trouble by using the Go modules in vendored mode. By default Go will keep all your third party libraries in one place (e.g. `~/go/pkg/mod`). When building a Docker image, Docker is not allowed to access anything outside of the current scope (the application directory). That means it will not be able to access and include the external Go modules when building the image. You can force Go to make a copy of the dependencies in a folder called `vendor` in the application directory. This is done by running `go mod vendor`.  
-⚠️ All other Go commands (go test, go build, ...) will only respect and use the the existing `vendor` folder if they are passed the flag `-mod=vendor`. That means the flag needs to be added to all the Go commands in the Dockerfile.
+Since Go 1.14 all other Go commands (go test, go build, ...) will automatically use the the `vendor` folder if it exists. No need to explicitly set `-mod=vendor` anymore.
 
 ### Go Modules and Private Git Repositories
 Currently the Go dependency management does not support fetching packages via ssh instead of https. But for many private repositories (e.g. on-premise GitLab) ssh is the only option to fetch the code without manually entering the password or generating some special https URLs that include authentication tokens. A lot of the discussion around this is collected in [this GitHub Issue](https://github.com/golang/go/issues/29953).
@@ -284,53 +284,41 @@ func TestAdd(t *testing.T) {
 
 **Do:**
 ```go
-import "github.com/stretchr/testify/assert"
+import "github.com/stretchr/testify/require"
 
 func TestAdd(t *testing.T) {
 	actual := 2 + 2
 	expected := 4
-	assert.Equal(t, expected, actual)
+	require.Equal(t, expected, actual)
 }
 ```
-
-Besides the `assert` package used above [testify](https://github.com/stretchr/testify) also provides a `require` package with the same functions. When using `require` instead of `assert`, the test execution is stopped in case the assertion fails. This is very helpful if the following asserts only make sense if the first one succeeds and would only lead to confusing error messages otherwise.
+Prefer the use of `require` instead of `assert`. With `require` the test execution is stopped in case the assertion fails which is usually the better choice than to continue with the next test that might also fail due to a follow up error and cause a confusing error message.
 
 **Don't:**
 ```go
-import "github.com/stretchr/testify/assert"
+import "github.com/stretchr/testify/require"
 
 func TestMyHandler(t *testing.T) {
 	err := MyHandler()
 	assert.Error(t, err)
 	assert.Equal(t, http.StatusNotFound, err.(*httperrors.HTTPError).StatusCode)
-	// the second assert would be executed and even if the first assert was not successful
+	// the second assertion would be executed and even if the first assert was not successful
 	// and it would result in:
 	// "panic: interface conversion: error is nil, not *httperrors.HTTPError"
-}
-
-// OR
-
-func TestMyHandler(t *testing.T) {
-	err := MyHandler()
-	if assert.Error(t, err) {
-		assert.Equal(t, http.StatusNotFound, err.(*httperrors.HTTPError).StatusCode)
-	}
 }
 ```
 
 **Do:**
 ```go
 import (
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestMyHandler(t *testing.T) {
 	err := MyHandler()
-	require.Error(t, err)
-	assert.Equal(t, http.StatusNotFound, err.(*httperrors.HTTPError).StatusCode)
-	// Now the assert that analyzes the error further is only executed if there was actually an error.
-	// If the error is nil the test execution stops after the require.Error.
+	require.Error(t, err) {
+	require.Equal(t, http.StatusNotFound, err.(*httperrors.HTTPError).StatusCode)
+	// the second assertion will not be executed if the first one fails
 }
 ```
 
@@ -484,21 +472,34 @@ linters:
     - unconvert
     - goconst
     - gosec
+    - bodyclose
 
 run:
-  timeout: 10m
+  deadline: 10m
+  modules-download-mode: vendor
 
 issues:
+  exclude-use-default: false
   exclude-rules:
     - path: _test\.go
       linters:
         - dupl
         - goconst
         - gosec
+    - linters:
+        - govet
+      text: 'shadow: declaration of "err" shadows declaration'
+    - linters:
+        - golint
+      text: 'in another file for this package'
 
 linters-settings:
   gocyclo:
     min-complexity: 10
+  golint:
+    min-confidence: 0
+  govet:
+    check-shadowing: true
 ```
 
 Also tools like [goimports](https://godoc.org/golang.org/x/tools/cmd/goimports) can be used in most IDEs to format/update the import statements as you go.
@@ -850,10 +851,8 @@ func run(foo interface{}) {
 
 Empty interfaces make code more complex and unclear, avoid them where you can. With `interface{}` you do not really get the benefits of a typed language.
 
-## Order Functions Public-Private and Top-Down
-When arranging your functions inside a package go by these rules in the given order.
-1. *From public to private*: All exported function/methods come first in whatever order makes sense. Only after all of those put the unexported functions and methods.
-2. *From top to bottom*: Helper functions are below the functions they are used in so the high level code can be read first and then the reader can dive into the details. E.g., in the main package `main(){...}` should be the first function
+## Order Functions Top-Down
+Arrange your functions *from top to bottom*: Helper functions are below the functions they are used in so the high level code can be read first and then the reader can dive into the details. E.g., in the main package `main(){...}` should be the first function.
 
 **Don't:**
 ```go
@@ -872,10 +871,6 @@ func (s *someStruct) ExportedFunction1 {
 func someOtherHelper() string {
 	// ...
 }
-
-func (s *someStruct) ExportedFunction2 {
-	// ...
-}
 ```
 
 **Do:**
@@ -884,10 +879,6 @@ package example
 
 func (s *someStruct) ExportedFunction1 {
 	s.someHelper()
-	// ...
-}
-
-func (s *someStruct) ExportedFunction2 {
 	// ...
 }
 
@@ -900,9 +891,7 @@ func someOtherHelper() string {
 	// ...
 }
 ```
-
-Putting `main()` first makes reading the file a lot more easier. Only the
-`init()` function should be above it.
+If two high level functions share some helper function, the helper function can be below any of the two high level functions.
 
 ## Avoid Helper/Util
 

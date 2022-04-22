@@ -466,9 +466,8 @@ Use the linters included in [Golangci-Lint](https://github.com/golangci/golangci
 linters:
   enable:
     - gocyclo
-    - golint
+    - revive
     - dupl
-    - interfacer
     - unconvert
     - goconst
     - gosec
@@ -490,13 +489,13 @@ issues:
         - govet
       text: 'shadow: declaration of "err" shadows declaration'
     - linters:
-        - golint
+        - revive
       text: 'in another file for this package'
 
 linters-settings:
   gocyclo:
     min-complexity: 10
-  golint:
+  revive:
     min-confidence: 0
   govet:
     check-shadowing: true
@@ -806,19 +805,19 @@ import (
 	"fmt"
 	"os"
 
-	"git.fastbill.com/this-project/pkg/some-lib"
-
 	"git.fastbill.com/another-project/pkg/some-lib"
 	"git.fastbill.com/yet-another-project/pkg/some-lib"
 	"github.com/some/external/pkg"
 	"github.com/some-other/external/pkg"
+
+	"git.fastbill.com/this-project/pkg/some-lib"
 )
 ```
 
-Divide imports into three groups sorted from internal to external for readability:
+Divide imports into three groups for readability:
 1. Standard library
-2. Project internal packages
-3. External packages (can be provided by third-party or in-house)
+2. External packages (can be provided by third-party or in-house)
+3. Project internal packages
 
 ## Avoid Naked Return
 
